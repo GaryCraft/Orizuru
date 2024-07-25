@@ -14,27 +14,48 @@ import xyz.ourspace.xdev.utils.Logger
 class PerformanceWorker {
 	companion object {
 		fun start() {
-			var spark: Spark? = null
-			runCatching {
-				spark = SparkProvider.get()
-			}.onFailure {
-				Logger.consoleLog("Spark is not installed, performance metrics will not be posted")
-				return
-			}
-			if (spark == null) {
-				Logger.consoleLog("Spark is not installed, performance metrics will not be posted")
-				return
-			}
 			val intervalMinutes = Orizuru.instance.config.getLong("metrics.interval")
-			val tpsI: DoubleStatistic<TicksPerSecond> = spark!!.tps()!!
-			val cpuUsageI = spark!!.cpuProcess()
-			Bukkit.getScheduler().scheduleSyncRepeatingTask(Orizuru.instance, Runnable {
-				val tps = tpsI.poll()
+			// Declare Spark
+			var spark: Spark? = null
+			var tries = 0
+			// Declare handles for statistics
+			var tpsI: DoubleStatistic<TicksPerSecond>? = null
+			var cpuUsageI: DoubleStatistic<StatisticWindow.CpuUsage>? = null
+			// Start scheduled task
+			var handle: Int? = null
+			handle = Bukkit.getScheduler().scheduleSyncRepeatingTask(Orizuru.instance, Runnable {
+				// Try to assign spark
+				if (spark == null) {
+					runCatching {
+						spark = SparkProvider.get()
+					}.onFailure {
+						// Increment tries
+						tries++
+						// if too many tries, cancel this task
+						if (tries >= 5) {
+							Logger.consoleLogError("Spark is not installed, performance metrics will not be posted")
+							handle?.let { Bukkit.getScheduler().cancelTask(it) }
+							return@Runnable
+						}
+						Logger.consoleLogWarning("Spark is not initialized, retrying later")
+						return@Runnable
+					}
+				}
+				// Spark should never be null here
+				if (spark == null) {
+					return@Runnable
+				}
+				tpsI = spark?.tps()
+				cpuUsageI = spark?.cpuProcess()
+				if (tpsI == null || cpuUsageI == null) {
+					return@Runnable
+				}
+				val tps = tpsI!!.poll()
 				val memory = Runtime.getRuntime().freeMemory() / 1024 / 1024
 				val maxMemory = Runtime.getRuntime().maxMemory() / 1024 / 1024
 				val usedMemory = maxMemory - memory
 				val memPercent = usedMemory * 100 / maxMemory
-				val cpuUsage: Double = cpuUsageI.poll(StatisticWindow.CpuUsage.MINUTES_1) * 100
+				val cpuUsage: Double = cpuUsageI!!.poll(StatisticWindow.CpuUsage.MINUTES_1) * 100
 				val playerStats = ServerPlayerStats(
 						Bukkit.getOnlinePlayers().size,
 						Bukkit.getMaxPlayers()

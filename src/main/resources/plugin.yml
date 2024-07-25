@@ -1,6 +1,6 @@
 name: Orizuru
 description: Web-based communication plugin for Minecraft servers using events.
-version: 1.1.4
+version: 1.1.5
 author: GaryCraft
 main: xyz.ourspace.xdev.Orizuru
 api-version: "1.20"

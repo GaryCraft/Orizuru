@@ -6,7 +6,7 @@
 
     <groupId>xyz.our-space.xdev</groupId>
     <artifactId>orizuru</artifactId>
-    <version>1.1.4</version>
+    <version>1.1.5</version>
     <properties>
         <kotlin.version>1.6.10</kotlin.version>
         <java.version>18</java.version>
